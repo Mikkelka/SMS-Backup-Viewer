@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Samtaler</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>SMS Samtaler</h1>
+            </div>
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" class="search-input" placeholder="Søg i alle beskeder...">
+                <span class="search-clear" id="searchClear">✕</span>
+            </div>
+            <div class="file-input">
+                <input type="file" id="xmlFile" accept=".xml" />
+                <label for="xmlFile">Vælg SMS backup XML fil</label>
+            </div>
+            <div id="conversationList" class="conversation-list">
+                <div class="loading">Vælg en XML fil for at starte</div>
+            </div>
+        </div>
+
+        <div class="chat-area">
+            <div class="chat-header">
+                <h2 id="chatTitle">Vælg en samtale</h2>
+            </div>
+            <div id="chatMessages" class="chat-messages">
+                <div class="no-conversation">Vælg en samtale fra listen til venstre</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
