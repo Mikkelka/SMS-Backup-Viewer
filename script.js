@@ -21,9 +21,11 @@ function parseXML(xmlString) {
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
     const smsElements = xmlDoc.querySelectorAll('sms');
+    const mmsElements = xmlDoc.querySelectorAll('mms');
     
     conversations = {};
     
+    // Parse SMS messages
     smsElements.forEach(sms => {
         const address = sms.getAttribute('address');
         let contactName = sms.getAttribute('contact_name');
@@ -60,7 +62,101 @@ function parseXML(xmlString) {
             type: type === '1' ? 'received' : 'sent',
             body: decodeHTMLEntities(body),
             timestamp: date,
-            readableDate: readableDate
+            readableDate: readableDate,
+            messageType: 'SMS'
+        };
+        
+        conversations[address].messages.push(message);
+        
+        if (date > conversations[address].lastDate) {
+            conversations[address].lastDate = date;
+            conversations[address].lastMessage = message.body;
+        }
+    });
+    
+    // Parse MMS messages
+    mmsElements.forEach(mms => {
+        const address = mms.getAttribute('address');
+        let contactName = mms.getAttribute('contact_name');
+        
+        // Check for invalid contact names and use address instead
+        if (!contactName || contactName === 'null' || contactName === '(Unknown)' || contactName.trim() === '') {
+            contactName = formatPhoneNumber(address);
+        }
+        
+        // MMS type mapping: msg_box 1 = received, msg_box 2 = sent
+        const msgBox = mms.getAttribute('msg_box');
+        const type = msgBox === '1' ? 'received' : 'sent';
+        const date = parseInt(mms.getAttribute('date'));
+        const readableDate = mms.getAttribute('readable_date');
+        const mSize = mms.getAttribute('m_size') || '0';
+        
+        // Look for text and media parts in MMS
+        const parts = mms.querySelectorAll('part');
+        let mmsBody = '';
+        let hasMedia = false;
+        let mediaAttachments = [];
+        
+        parts.forEach(part => {
+            const contentType = part.getAttribute('ct');
+            const text = part.getAttribute('text');
+            const data = part.getAttribute('data');
+            const fileName = part.getAttribute('name') || part.getAttribute('cl');
+            
+            if (contentType && contentType.startsWith('text/')) {
+                if (text) {
+                    mmsBody += decodeHTMLEntities(text) + ' ';
+                }
+            } else if (contentType && (contentType.startsWith('image/') || contentType.startsWith('video/') || contentType.startsWith('audio/'))) {
+                hasMedia = true;
+                if (data) {
+                    mediaAttachments.push({
+                        type: contentType,
+                        data: data,
+                        fileName: fileName
+                    });
+                }
+            }
+        });
+        
+        // If no text content found, create a placeholder message
+        if (!mmsBody.trim()) {
+            if (hasMedia) {
+                mmsBody = '[MMS med mediefiler]';
+            } else if (parseInt(mSize) > 0) {
+                mmsBody = '[MMS besked]';
+            } else {
+                mmsBody = '[Tom MMS]';
+            }
+        }
+        
+        if (!conversations[address]) {
+            conversations[address] = {
+                name: contactName,
+                messages: [],
+                lastMessage: '',
+                lastDate: 0
+            };
+        } else {
+            // If we already have this conversation but now have a better name, update it
+            const currentName = conversations[address].name;
+            const isCurrentNamePhoneNumber = currentName === address || currentName.includes('+') || /^\d/.test(currentName);
+            const isNewNameReal = contactName !== address && !contactName.includes('+') && !/^\d/.test(contactName);
+            
+            if (isCurrentNamePhoneNumber && isNewNameReal) {
+                conversations[address].name = contactName;
+            }
+        }
+        
+        const message = {
+            type: type,
+            body: mmsBody.trim(),
+            timestamp: date,
+            readableDate: readableDate,
+            messageType: 'MMS',
+            hasMedia: hasMedia,
+            mediaSize: mSize,
+            mediaAttachments: mediaAttachments
         };
         
         conversations[address].messages.push(message);
@@ -266,10 +362,55 @@ function showConversation(address, highlightTimestamp = null) {
             messageBody = highlightText(message.body, searchTerm);
         }
         
+        // Add message type indicator
+        const messageTypeClass = message.messageType === 'MMS' ? 'message-mms' : 'message-sms';
+        const messageTypeIndicator = message.messageType === 'MMS' ? 
+            `<span class="message-type-indicator">${message.messageType}${message.hasMedia ? ' 📎' : ''}</span>` : '';
+        
+        // Generate media content HTML
+        let mediaHTML = '';
+        if (message.mediaAttachments && message.mediaAttachments.length > 0) {
+            mediaHTML = '<div class="media-attachments">';
+            message.mediaAttachments.forEach((attachment, index) => {
+                if (attachment.type.startsWith('image/')) {
+                    const imageData = `data:${attachment.type};base64,${attachment.data}`;
+                    mediaHTML += `
+                        <div class="media-item">
+                            <img src="${imageData}" alt="${attachment.fileName || 'Billede'}" onclick="openImageModal('${imageData}', '${attachment.fileName || 'Billede'}')" />
+                        </div>
+                    `;
+                } else if (attachment.type.startsWith('video/')) {
+                    const videoData = `data:${attachment.type};base64,${attachment.data}`;
+                    mediaHTML += `
+                        <div class="media-item">
+                            <video controls>
+                                <source src="${videoData}" type="${attachment.type}">
+                                Video kan ikke vises
+                            </video>
+                            <div class="media-filename">${attachment.fileName || 'Video'}</div>
+                        </div>
+                    `;
+                } else if (attachment.type.startsWith('audio/')) {
+                    const audioData = `data:${attachment.type};base64,${attachment.data}`;
+                    mediaHTML += `
+                        <div class="media-item">
+                            <audio controls>
+                                <source src="${audioData}" type="${attachment.type}">
+                                Audio kan ikke afspilles
+                            </audio>
+                            <div class="media-filename">${attachment.fileName || 'Audio'}</div>
+                        </div>
+                    `;
+                }
+            });
+            mediaHTML += '</div>';
+        }
+        
         messageDiv.innerHTML = `
-            <div class="message-bubble">
-                <div class="message-time">${message.readableDate}</div>
+            <div class="message-bubble ${messageTypeClass}">
+                <div class="message-time">${message.readableDate} ${messageTypeIndicator}</div>
                 ${messageBody}
+                ${mediaHTML}
             </div>
         `;
         
@@ -323,6 +464,48 @@ showConversation = function(address, highlightTimestamp = null) {
     }
 };
 
+
+// Image modal functionality
+function openImageModal(imageSrc, fileName) {
+    const existingModal = document.getElementById('imageModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'imageModal';
+    modal.className = 'image-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeImageModal()">&times;</span>
+            <img src="${imageSrc}" alt="${fileName}">
+            <div class="modal-filename">${fileName}</div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeImageModal();
+        }
+    });
+    
+    // Close modal with ESC key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeImageModal();
+        }
+    });
+}
+
+function closeImageModal() {
+    const modal = document.getElementById('imageModal');
+    if (modal) {
+        modal.remove();
+    }
+}
 
 // Initialize - show conversations by default
 document.addEventListener('DOMContentLoaded', function() {
