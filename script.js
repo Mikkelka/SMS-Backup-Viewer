@@ -300,3 +300,31 @@ function showConversation(address, highlightTimestamp = null) {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 }
+
+// Simple mobile navigation
+function showConversations() {
+    document.getElementById('panelConversations').classList.add('active');
+    document.getElementById('panelMessages').classList.remove('active');
+}
+
+function showMessages() {
+    document.getElementById('panelConversations').classList.remove('active');
+    document.getElementById('panelMessages').classList.add('active');
+}
+
+// Override showConversation to switch to messages on mobile
+const originalShowConversation = showConversation;
+showConversation = function(address, highlightTimestamp = null) {
+    originalShowConversation.call(this, address, highlightTimestamp);
+    
+    // Switch to messages view on mobile when conversation is selected
+    if (window.innerWidth <= 768) {
+        showMessages();
+    }
+};
+
+
+// Initialize - show conversations by default
+document.addEventListener('DOMContentLoaded', function() {
+    showConversations();
+});

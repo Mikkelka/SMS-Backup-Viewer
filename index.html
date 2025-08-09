@@ -2,14 +2,15 @@
 <html lang="da">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>SMS Samtaler</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <div class="sidebar-header">
+    <div class="app">
+        <!-- Conversations panel -->
+        <div class="panel" id="panelConversations">
+            <div class="header">
                 <h1>SMS Samtaler</h1>
             </div>
             <div class="search-container">
@@ -26,12 +27,14 @@
             </div>
         </div>
 
-        <div class="chat-area">
-            <div class="chat-header">
+        <!-- Messages panel -->
+        <div class="panel" id="panelMessages">
+            <div class="header">
+                <button class="back-btn" onclick="showConversations()">←</button>
                 <h2 id="chatTitle">Vælg en samtale</h2>
             </div>
-            <div id="chatMessages" class="chat-messages">
-                <div class="no-conversation">Vælg en samtale fra listen til venstre</div>
+            <div id="chatMessages" class="messages">
+                <div class="no-conversation">Vælg en samtale fra listen</div>
             </div>
         </div>
     </div>
