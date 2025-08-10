@@ -220,8 +220,8 @@ body {
 }
 
 .message-bubble.message-mms {
-    background: #8B5A2B !important;
-    border-left: 3px solid #FF9500;
+    background: #2c5aa0 !important;
+    border-left: 3px solid #0A84FF;
 }
 
 .message-type-indicator {
