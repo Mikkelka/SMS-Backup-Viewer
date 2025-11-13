@@ -4,20 +4,21 @@ let searchTerm = '';
 let searchResults = [];
 let escapeHandler = null;
 
-
-document.getElementById('xmlFile').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            parseXML(e.target.result);
-        };
-        reader.readAsText(file);
-    }
-});
+// Cache DOM elements for better performance
+const DOM = {
+    xmlFile: null,
+    conversationList: null,
+    chatMessages: null,
+    chatTitle: null,
+    searchInput: null,
+    searchClear: null,
+    panelConversations: null,
+    panelMessages: null,
+    backBtn: null
+};
 
 function parseXML(xmlString) {
-    document.getElementById('conversationList').innerHTML = '<div class="loading">Indlæser samtaler...</div>';
+    DOM.conversationList.innerHTML = '<div class="loading">Indlæser samtaler...</div>';
     
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlString, "text/xml");
@@ -194,29 +195,26 @@ function debounce(func, wait) {
 }
 
 function setupSearch() {
-    const searchInput = document.getElementById('searchInput');
-    const searchClear = document.getElementById('searchClear');
-
     // Create debounced search function
     const debouncedSearch = debounce((term) => {
         if (term.length > 0) {
-            searchClear.style.display = 'block';
+            DOM.searchClear.style.display = 'block';
             performSearch(term);
         } else {
-            searchClear.style.display = 'none';
+            DOM.searchClear.style.display = 'none';
             displayConversationList();
         }
     }, 300);
 
-    searchInput.addEventListener('input', function(e) {
+    DOM.searchInput.addEventListener('input', function(e) {
         searchTerm = e.target.value.trim();
         debouncedSearch(searchTerm);
     });
 
-    searchClear.addEventListener('click', function() {
-        searchInput.value = '';
+    DOM.searchClear.addEventListener('click', function() {
+        DOM.searchInput.value = '';
         searchTerm = '';
-        searchClear.style.display = 'none';
+        DOM.searchClear.style.display = 'none';
         displayConversationList();
     });
 }
@@ -227,26 +225,20 @@ function performSearch(term) {
     searchResults = [];
 
     Object.entries(conversations).forEach(([address, conv]) => {
-        // Search in contact name
-        if (regex.test(conv.name)) {
-            conv.messages.forEach(message => {
-                searchResults.push({
-                    address: address,
-                    contactName: conv.name,
-                    message: message,
-                    matchType: 'contact'
-                });
-            });
-        }
+        const contactMatches = regex.test(conv.name);
 
         // Search in message content
         conv.messages.forEach(message => {
-            if (regex.test(message.body)) {
+            const messageMatches = regex.test(message.body);
+
+            // Only add if message matches OR contact matches
+            // This prevents adding ALL messages when only contact name matches
+            if (messageMatches || contactMatches) {
                 searchResults.push({
                     address: address,
                     contactName: conv.name,
                     message: message,
-                    matchType: 'message'
+                    matchType: messageMatches ? 'message' : 'contact'
                 });
             }
         });
@@ -259,14 +251,19 @@ function performSearch(term) {
 }
 
 function displaySearchResults() {
-    const conversationList = document.getElementById('conversationList');
-    
     if (searchResults.length === 0) {
-        conversationList.innerHTML = `<div class="loading">Ingen resultater fundet for "${searchTerm}"</div>`;
+        DOM.conversationList.innerHTML = `<div class="loading">Ingen resultater fundet for "${searchTerm}"</div>`;
         return;
     }
-    
-    conversationList.innerHTML = `<div class="search-count">${searchResults.length} beskeder fundet</div>`;
+
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+
+    // Add count header
+    const countDiv = document.createElement('div');
+    countDiv.className = 'search-count';
+    countDiv.textContent = `${searchResults.length} beskeder fundet`;
+    fragment.appendChild(countDiv);
 
     searchResults.forEach((result, index) => {
         const messagePreview = result.message.body.length > 100
@@ -284,8 +281,12 @@ function displaySearchResults() {
         // Add event listener instead of inline onclick
         item.addEventListener('click', () => showSearchResult(index));
 
-        conversationList.appendChild(item);
+        fragment.appendChild(item);
     });
+
+    // Single DOM update
+    DOM.conversationList.innerHTML = '';
+    DOM.conversationList.appendChild(fragment);
 }
 
 function highlightText(text, term) {
@@ -330,19 +331,18 @@ function showSearchResult(index) {
 }
 
 function displayConversationList() {
-    const conversationList = document.getElementById('conversationList');
-    
     // Sort conversations by last message date
     const sortedConversations = Object.entries(conversations)
         .sort(([,a], [,b]) => b.lastDate - a.lastDate);
-    
+
     if (sortedConversations.length === 0) {
-        conversationList.innerHTML = '<div class="loading">Ingen samtaler fundet</div>';
+        DOM.conversationList.innerHTML = '<div class="loading">Ingen samtaler fundet</div>';
         return;
     }
-    
-    conversationList.innerHTML = '';
-    
+
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+
     sortedConversations.forEach(([address, conv]) => {
         const item = document.createElement('div');
         item.className = 'conversation-item';
@@ -356,8 +356,12 @@ function displayConversationList() {
         // Add event listener instead of inline onclick
         item.addEventListener('click', () => showConversation(address));
 
-        conversationList.appendChild(item);
+        fragment.appendChild(item);
     });
+
+    // Single DOM update
+    DOM.conversationList.innerHTML = '';
+    DOM.conversationList.appendChild(fragment);
 }
 
 function showConversation(address, highlightTimestamp = null) {
@@ -365,19 +369,18 @@ function showConversation(address, highlightTimestamp = null) {
     if (!highlightTimestamp) {
         document.querySelectorAll('.conversation-item').forEach(item => {
             item.classList.remove('active');
+            if (item.dataset.address === address) {
+                item.classList.add('active');
+            }
         });
-        if (event && event.target) {
-            event.target.closest('.conversation-item').classList.add('active');
-        }
     }
-    
+
     currentConversation = address;
     const conv = conversations[address];
-    
-    document.getElementById('chatTitle').textContent = conv.name;
-    
-    const chatMessages = document.getElementById('chatMessages');
-    chatMessages.innerHTML = '';
+
+    DOM.chatTitle.textContent = conv.name;
+
+    DOM.chatMessages.innerHTML = '';
     
     let targetMessageElement = null;
     
@@ -448,7 +451,7 @@ function showConversation(address, highlightTimestamp = null) {
         }
 
         messageDiv.appendChild(messageBubble);
-        
+
         // Mark message to scroll to if it matches the timestamp
         if (highlightTimestamp && message.timestamp === highlightTimestamp) {
             targetMessageElement = messageDiv;
@@ -457,14 +460,14 @@ function showConversation(address, highlightTimestamp = null) {
             messageDiv.style.padding = '5px';
             messageDiv.style.margin = '5px 0';
         }
-        
-        chatMessages.appendChild(messageDiv);
+
+        DOM.chatMessages.appendChild(messageDiv);
     });
-    
+
     // Scroll to specific message or bottom
     if (targetMessageElement) {
         targetMessageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
+
         // Remove highlight after 3 seconds
         setTimeout(() => {
             targetMessageElement.style.backgroundColor = '';
@@ -473,31 +476,25 @@ function showConversation(address, highlightTimestamp = null) {
             targetMessageElement.style.margin = '';
         }, 3000);
     } else {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
+        DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+    }
+
+    // Switch to messages view on mobile when conversation is selected
+    if (!highlightTimestamp && window.innerWidth <= 768) {
+        showMessages();
     }
 }
 
 // Simple mobile navigation
 function showConversations() {
-    document.getElementById('panelConversations').classList.add('active');
-    document.getElementById('panelMessages').classList.remove('active');
+    DOM.panelConversations.classList.add('active');
+    DOM.panelMessages.classList.remove('active');
 }
 
 function showMessages() {
-    document.getElementById('panelConversations').classList.remove('active');
-    document.getElementById('panelMessages').classList.add('active');
+    DOM.panelConversations.classList.remove('active');
+    DOM.panelMessages.classList.add('active');
 }
-
-// Override showConversation to switch to messages on mobile
-const originalShowConversation = showConversation;
-showConversation = function(address, highlightTimestamp = null) {
-    originalShowConversation.call(this, address, highlightTimestamp);
-    
-    // Switch to messages view on mobile when conversation is selected
-    if (window.innerWidth <= 768) {
-        showMessages();
-    }
-};
 
 
 // Image modal functionality
@@ -559,11 +556,35 @@ function closeImageModal() {
 
 // Initialize - show conversations by default
 document.addEventListener('DOMContentLoaded', function() {
-    showConversations();
+    // Cache all DOM elements
+    DOM.xmlFile = document.getElementById('xmlFile');
+    DOM.conversationList = document.getElementById('conversationList');
+    DOM.chatMessages = document.getElementById('chatMessages');
+    DOM.chatTitle = document.getElementById('chatTitle');
+    DOM.searchInput = document.getElementById('searchInput');
+    DOM.searchClear = document.getElementById('searchClear');
+    DOM.panelConversations = document.getElementById('panelConversations');
+    DOM.panelMessages = document.getElementById('panelMessages');
+    DOM.backBtn = document.getElementById('backBtn');
+
+    // Add file input event listener
+    if (DOM.xmlFile) {
+        DOM.xmlFile.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    parseXML(e.target.result);
+                };
+                reader.readAsText(file);
+            }
+        });
+    }
 
     // Add back button event listener
-    const backBtn = document.getElementById('backBtn');
-    if (backBtn) {
-        backBtn.addEventListener('click', showConversations);
+    if (DOM.backBtn) {
+        DOM.backBtn.addEventListener('click', showConversations);
     }
+
+    showConversations();
 });
