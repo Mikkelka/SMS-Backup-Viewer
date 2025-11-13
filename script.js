@@ -2,6 +2,7 @@ let conversations = {};
 let currentConversation = null;
 let searchTerm = '';
 let searchResults = [];
+let escapeHandler = null;
 
 
 document.getElementById('xmlFile').addEventListener('change', function(e) {
@@ -176,22 +177,42 @@ function parseXML(xmlString) {
     setupSearch();
 }
 
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
 function setupSearch() {
     const searchInput = document.getElementById('searchInput');
     const searchClear = document.getElementById('searchClear');
-    
-    searchInput.addEventListener('input', function(e) {
-        searchTerm = e.target.value.trim();
-        
-        if (searchTerm.length > 0) {
+
+    // Create debounced search function
+    const debouncedSearch = debounce((term) => {
+        if (term.length > 0) {
             searchClear.style.display = 'block';
-            performSearch(searchTerm);
+            performSearch(term);
         } else {
             searchClear.style.display = 'none';
             displayConversationList();
         }
+    }, 300);
+
+    searchInput.addEventListener('input', function(e) {
+        searchTerm = e.target.value.trim();
+        debouncedSearch(searchTerm);
     });
-    
+
     searchClear.addEventListener('click', function() {
         searchInput.value = '';
         searchTerm = '';
@@ -201,9 +222,10 @@ function setupSearch() {
 }
 
 function performSearch(term) {
-    const regex = new RegExp(term, 'gi');
+    const escapedTerm = escapeRegExp(term);
+    const regex = new RegExp(escapedTerm, 'gi');
     searchResults = [];
-    
+
     Object.entries(conversations).forEach(([address, conv]) => {
         // Search in contact name
         if (regex.test(conv.name)) {
@@ -216,7 +238,7 @@ function performSearch(term) {
                 });
             });
         }
-        
+
         // Search in message content
         conv.messages.forEach(message => {
             if (regex.test(message.body)) {
@@ -229,10 +251,10 @@ function performSearch(term) {
             }
         });
     });
-    
+
     // Sort by timestamp (newest first)
     searchResults.sort((a, b) => b.message.timestamp - a.message.timestamp);
-    
+
     displaySearchResults();
 }
 
@@ -244,28 +266,32 @@ function displaySearchResults() {
         return;
     }
     
-    let html = `<div class="search-count">${searchResults.length} beskeder fundet</div>`;
-    
+    conversationList.innerHTML = `<div class="search-count">${searchResults.length} beskeder fundet</div>`;
+
     searchResults.forEach((result, index) => {
-        const messagePreview = result.message.body.length > 100 
-            ? result.message.body.substring(0, 100) + '...' 
+        const messagePreview = result.message.body.length > 100
+            ? result.message.body.substring(0, 100) + '...'
             : result.message.body;
-        
-        html += `
-            <div class="search-result-item" onclick="showSearchResult(${index})">
-                <div class="search-result-contact">${highlightText(result.contactName, searchTerm)}</div>
-                <div class="search-result-message">${highlightText(messagePreview, searchTerm)}</div>
-                <div class="search-result-date">${result.message.readableDate}</div>
-            </div>
+
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        item.innerHTML = `
+            <div class="search-result-contact">${highlightText(result.contactName, searchTerm)}</div>
+            <div class="search-result-message">${highlightText(messagePreview, searchTerm)}</div>
+            <div class="search-result-date">${result.message.readableDate}</div>
         `;
+
+        // Add event listener instead of inline onclick
+        item.addEventListener('click', () => showSearchResult(index));
+
+        conversationList.appendChild(item);
     });
-    
-    conversationList.innerHTML = html;
 }
 
 function highlightText(text, term) {
     if (!term) return text;
-    const regex = new RegExp(`(${term})`, 'gi');
+    const escapedTerm = escapeRegExp(term);
+    const regex = new RegExp(`(${escapedTerm})`, 'gi');
     return text.replace(regex, '<span class="search-highlight">$1</span>');
 }
 
@@ -320,13 +346,16 @@ function displayConversationList() {
     sortedConversations.forEach(([address, conv]) => {
         const item = document.createElement('div');
         item.className = 'conversation-item';
-        item.onclick = () => showConversation(address);
-        
+        item.dataset.address = address;
+
         item.innerHTML = `
             <div class="conversation-name">${conv.name} <span class="conversation-count">${conv.messages.length}</span></div>
             <div class="conversation-preview">${conv.lastMessage}</div>
         `;
-        
+
+        // Add event listener instead of inline onclick
+        item.addEventListener('click', () => showConversation(address));
+
         conversationList.appendChild(item);
     });
 }
@@ -367,52 +396,58 @@ function showConversation(address, highlightTimestamp = null) {
         const messageTypeIndicator = message.messageType === 'MMS' ? 
             `<span class="message-type-indicator">${message.messageType}${message.hasMedia ? ' 📎' : ''}</span>` : '';
         
-        // Generate media content HTML
-        let mediaHTML = '';
+        // Create message bubble
+        const messageBubble = document.createElement('div');
+        messageBubble.className = `message-bubble ${messageTypeClass}`;
+        messageBubble.innerHTML = `
+            <div class="message-time">${message.readableDate} ${messageTypeIndicator}</div>
+            ${messageBody}
+        `;
+
+        // Generate media content if present
         if (message.mediaAttachments && message.mediaAttachments.length > 0) {
-            mediaHTML = '<div class="media-attachments">';
+            const mediaAttachmentsDiv = document.createElement('div');
+            mediaAttachmentsDiv.className = 'media-attachments';
+
             message.mediaAttachments.forEach((attachment, index) => {
+                const mediaItemDiv = document.createElement('div');
+                mediaItemDiv.className = 'media-item';
+
                 if (attachment.type.startsWith('image/')) {
                     const imageData = `data:${attachment.type};base64,${attachment.data}`;
-                    mediaHTML += `
-                        <div class="media-item">
-                            <img src="${imageData}" alt="${attachment.fileName || 'Billede'}" onclick="openImageModal('${imageData}', '${attachment.fileName || 'Billede'}')" />
-                        </div>
-                    `;
+                    const img = document.createElement('img');
+                    img.src = imageData;
+                    img.alt = attachment.fileName || 'Billede';
+                    // Add event listener instead of inline onclick
+                    img.addEventListener('click', () => openImageModal(imageData, attachment.fileName || 'Billede'));
+                    mediaItemDiv.appendChild(img);
                 } else if (attachment.type.startsWith('video/')) {
                     const videoData = `data:${attachment.type};base64,${attachment.data}`;
-                    mediaHTML += `
-                        <div class="media-item">
-                            <video controls>
-                                <source src="${videoData}" type="${attachment.type}">
-                                Video kan ikke vises
-                            </video>
-                            <div class="media-filename">${attachment.fileName || 'Video'}</div>
-                        </div>
+                    mediaItemDiv.innerHTML = `
+                        <video controls>
+                            <source src="${videoData}" type="${attachment.type}">
+                            Video kan ikke vises
+                        </video>
+                        <div class="media-filename">${attachment.fileName || 'Video'}</div>
                     `;
                 } else if (attachment.type.startsWith('audio/')) {
                     const audioData = `data:${attachment.type};base64,${attachment.data}`;
-                    mediaHTML += `
-                        <div class="media-item">
-                            <audio controls>
-                                <source src="${audioData}" type="${attachment.type}">
-                                Audio kan ikke afspilles
-                            </audio>
-                            <div class="media-filename">${attachment.fileName || 'Audio'}</div>
-                        </div>
+                    mediaItemDiv.innerHTML = `
+                        <audio controls>
+                            <source src="${audioData}" type="${attachment.type}">
+                            Audio kan ikke afspilles
+                        </audio>
+                        <div class="media-filename">${attachment.fileName || 'Audio'}</div>
                     `;
                 }
+
+                mediaAttachmentsDiv.appendChild(mediaItemDiv);
             });
-            mediaHTML += '</div>';
+
+            messageBubble.appendChild(mediaAttachmentsDiv);
         }
-        
-        messageDiv.innerHTML = `
-            <div class="message-bubble ${messageTypeClass}">
-                <div class="message-time">${message.readableDate} ${messageTypeIndicator}</div>
-                ${messageBody}
-                ${mediaHTML}
-            </div>
-        `;
+
+        messageDiv.appendChild(messageBubble);
         
         // Mark message to scroll to if it matches the timestamp
         if (highlightTimestamp && message.timestamp === highlightTimestamp) {
@@ -471,33 +506,43 @@ function openImageModal(imageSrc, fileName) {
     if (existingModal) {
         existingModal.remove();
     }
-    
+
     const modal = document.createElement('div');
     modal.id = 'imageModal';
     modal.className = 'image-modal';
     modal.innerHTML = `
         <div class="modal-content">
-            <span class="modal-close" onclick="closeImageModal()">&times;</span>
+            <span class="modal-close">&times;</span>
             <img src="${imageSrc}" alt="${fileName}">
             <div class="modal-filename">${fileName}</div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
-    
+
+    // Add close button click handler
+    const closeBtn = modal.querySelector('.modal-close');
+    closeBtn.addEventListener('click', closeImageModal);
+
     // Close modal when clicking outside
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
             closeImageModal();
         }
     });
-    
-    // Close modal with ESC key
-    document.addEventListener('keydown', function(e) {
+
+    // Remove old ESC listener if it exists
+    if (escapeHandler) {
+        document.removeEventListener('keydown', escapeHandler);
+    }
+
+    // Create and store new ESC listener
+    escapeHandler = function(e) {
         if (e.key === 'Escape') {
             closeImageModal();
         }
-    });
+    };
+    document.addEventListener('keydown', escapeHandler);
 }
 
 function closeImageModal() {
@@ -505,9 +550,20 @@ function closeImageModal() {
     if (modal) {
         modal.remove();
     }
+    // Clean up event listener
+    if (escapeHandler) {
+        document.removeEventListener('keydown', escapeHandler);
+        escapeHandler = null;
+    }
 }
 
 // Initialize - show conversations by default
 document.addEventListener('DOMContentLoaded', function() {
     showConversations();
+
+    // Add back button event listener
+    const backBtn = document.getElementById('backBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', showConversations);
+    }
 });
