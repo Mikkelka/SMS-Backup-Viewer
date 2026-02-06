@@ -22,8 +22,8 @@
 
             <div class="tools">
                 <label class="file-picker" for="xmlFile">
-                    <span class="file-picker-title">Indlaes backup</span>
-                    <span class="file-picker-sub">Vaelg XML fra SMS Backup &amp; Restore</span>
+                    <span class="file-picker-title">Indlæs backup</span>
+                    <span class="file-picker-sub">Vælg XML fra SMS Backup &amp; Restore</span>
                 </label>
                 <input type="file" id="xmlFile" accept=".xml,text/xml,application/xml">
 
@@ -33,15 +33,15 @@
                         type="text"
                         id="searchInput"
                         class="search-input"
-                        placeholder="Sog i kontakter og beskeder"
+                        placeholder="Søg i kontakter og beskeder"
                         autocomplete="off"
                     >
-                    <button type="button" class="search-clear" id="searchClear" aria-label="Ryd sogning">&times;</button>
+                    <button type="button" class="search-clear" id="searchClear" aria-label="Ryd søgning">&times;</button>
                 </div>
             </div>
 
             <div id="conversationList" class="conversation-list" role="list">
-                <div class="loading">Vaelg en XML-fil for at starte</div>
+                <div class="loading">Vælg en XML-fil for at starte</div>
             </div>
         </section>
 
@@ -50,12 +50,12 @@
                 <button class="back-btn" id="backButton" type="button" aria-label="Tilbage">&#8592;</button>
                 <div>
                     <p class="eyebrow">Samtale</p>
-                    <h2 id="chatTitle">Vaelg en samtale</h2>
+                    <h2 id="chatTitle">Vælg en samtale</h2>
                 </div>
             </header>
 
             <div id="chatMessages" class="messages" aria-live="polite">
-                <div class="no-conversation">Vaelg en samtale fra listen</div>
+                <div class="no-conversation">Vælg en samtale fra listen</div>
             </div>
         </section>
     </main>
@@ -63,7 +63,7 @@
     <div class="image-modal" id="imageModal" hidden>
         <div class="image-modal-card">
             <button type="button" class="image-modal-close" id="imageModalClose" aria-label="Luk">&times;</button>
-            <img id="imageModalImage" alt="MMS billede">
+            <img id="imageModalImage" alt="MMS-billede">
             <p class="image-modal-caption" id="imageModalCaption"></p>
         </div>
     </div>

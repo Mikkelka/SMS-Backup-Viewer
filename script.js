@@ -73,14 +73,14 @@ async function onFileSelected(event) {
         return;
     }
 
-    dom.conversationList.innerHTML = "<div class=\"loading\">Indlaeser samtaler...</div>";
+    dom.conversationList.innerHTML = "<div class=\"loading\">Indlæser samtaler...</div>";
 
     try {
         const xmlText = await file.text();
         parseXml(xmlText);
     } catch (error) {
         console.error(error);
-        dom.conversationList.innerHTML = "<div class=\"loading\">Kunne ikke laese filen.</div>";
+        dom.conversationList.innerHTML = "<div class=\"loading\">Kunne ikke læse filen.</div>";
     }
 }
 
@@ -137,7 +137,7 @@ function parseXml(xmlString) {
             const fileName =
                 part.getAttribute("name") ||
                 part.getAttribute("cl") ||
-                `vedhaeftning-${partIndex + 1}`;
+                `vedhæftning-${partIndex + 1}`;
 
             if (contentType.startsWith("text/") && textValue) {
                 textParts.push(decodeHtmlEntities(textValue));
@@ -187,7 +187,7 @@ function parseXml(xmlString) {
     if (!isMobile() && sortedConversations.length > 0) {
         showConversation(sortedConversations[0].address);
     } else {
-        renderNoConversation("Vaelg en samtale fra listen");
+        renderNoConversation("Vælg en samtale fra listen");
     }
 }
 
@@ -563,9 +563,9 @@ function createMediaAttachments(attachments) {
         if (attachment.type.startsWith("image/")) {
             const image = document.createElement("img");
             image.src = source;
-            image.alt = attachment.fileName || "MMS billede";
+            image.alt = attachment.fileName || "MMS-billede";
             image.dataset.imageSrc = source;
-            image.dataset.fileName = attachment.fileName || "MMS billede";
+            image.dataset.fileName = attachment.fileName || "MMS-billede";
             item.appendChild(image);
         } else if (attachment.type.startsWith("video/")) {
             const video = document.createElement("video");
@@ -591,7 +591,7 @@ function createMediaAttachments(attachments) {
 
         const fileName = document.createElement("div");
         fileName.className = "media-filename";
-        fileName.textContent = attachment.fileName || "Vedhaeftning";
+        fileName.textContent = attachment.fileName || "Vedhæftning";
 
         item.appendChild(fileName);
         container.appendChild(item);
@@ -606,7 +606,7 @@ function onMessagesClick(event) {
         return;
     }
 
-    openImageModal(image.dataset.imageSrc, image.dataset.fileName || "MMS billede");
+    openImageModal(image.dataset.imageSrc, image.dataset.fileName || "MMS-billede");
 }
 
 function openImageModal(source, fileName) {
@@ -634,7 +634,7 @@ function onGlobalKeydown(event) {
 }
 
 function renderNoConversation(text) {
-    dom.chatTitle.textContent = "Vaelg en samtale";
+    dom.chatTitle.textContent = "Vælg en samtale";
     dom.chatMessages.innerHTML = `<div class=\"no-conversation\">${escapeHtml(text)}</div>`;
 }
 
