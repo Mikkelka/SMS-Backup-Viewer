@@ -2,40 +2,69 @@
 <html lang="da">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>SMS Samtaler</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMS Arkiv</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="app">
-        <!-- Conversations panel -->
-        <div class="panel" id="panelConversations">
-            <div class="header">
-                <h1>SMS Samtaler</h1>
-            </div>
-            <div class="search-container">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="searchInput" class="search-input" placeholder="Søg i alle beskeder...">
-                <span class="search-clear" id="searchClear">✕</span>
-            </div>
-            <div class="file-input">
-                <input type="file" id="xmlFile" accept=".xml" />
-                <label for="xmlFile">Vælg SMS backup XML fil</label>
-            </div>
-            <div id="conversationList" class="conversation-list">
-                <div class="loading">Vælg en XML fil for at starte</div>
-            </div>
-        </div>
+    <main class="app" id="appRoot">
+        <section class="panel panel-conversations active" id="panelConversations" aria-label="Samtaler">
+            <header class="header header-conversations">
+                <div>
+                    <p class="eyebrow">Lokal og privat</p>
+                    <h1>SMS Arkiv</h1>
+                </div>
+                <div class="summary-pills" id="summaryPills" aria-live="polite"></div>
+            </header>
 
-        <!-- Messages panel -->
-        <div class="panel" id="panelMessages">
-            <div class="header">
-                <button class="back-btn" onclick="showConversations()">←</button>
-                <h2 id="chatTitle">Vælg en samtale</h2>
+            <div class="tools">
+                <label class="file-picker" for="xmlFile">
+                    <span class="file-picker-title">Indlaes backup</span>
+                    <span class="file-picker-sub">Vaelg XML fra SMS Backup &amp; Restore</span>
+                </label>
+                <input type="file" id="xmlFile" accept=".xml,text/xml,application/xml">
+
+                <div class="search-container">
+                    <span class="search-icon" aria-hidden="true">&#128269;</span>
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="search-input"
+                        placeholder="Sog i kontakter og beskeder"
+                        autocomplete="off"
+                    >
+                    <button type="button" class="search-clear" id="searchClear" aria-label="Ryd sogning">&times;</button>
+                </div>
             </div>
-            <div id="chatMessages" class="messages">
-                <div class="no-conversation">Vælg en samtale fra listen</div>
+
+            <div id="conversationList" class="conversation-list" role="list">
+                <div class="loading">Vaelg en XML-fil for at starte</div>
             </div>
+        </section>
+
+        <section class="panel panel-messages" id="panelMessages" aria-label="Beskeder">
+            <header class="header header-messages">
+                <button class="back-btn" id="backButton" type="button" aria-label="Tilbage">&#8592;</button>
+                <div>
+                    <p class="eyebrow">Samtale</p>
+                    <h2 id="chatTitle">Vaelg en samtale</h2>
+                </div>
+            </header>
+
+            <div id="chatMessages" class="messages" aria-live="polite">
+                <div class="no-conversation">Vaelg en samtale fra listen</div>
+            </div>
+        </section>
+    </main>
+
+    <div class="image-modal" id="imageModal" hidden>
+        <div class="image-modal-card">
+            <button type="button" class="image-modal-close" id="imageModalClose" aria-label="Luk">&times;</button>
+            <img id="imageModalImage" alt="MMS billede">
+            <p class="image-modal-caption" id="imageModalCaption"></p>
         </div>
     </div>
 
